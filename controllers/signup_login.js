@@ -5,6 +5,15 @@ const jwt = require('jsonwebtoken')
 const User = require('../models/user');
 
 
+
+function generateAccessToken(user){
+    return jwt.sign({ 
+        userId: user.id, 
+        username: user.username,
+        email: user.email
+    }, process.env.JWT_SECRET_KEY);
+}
+
 exports.getSignupPage =(req,res)=>{
     res.sendFile(path.join(__dirname,'..','views','signup.html'))
 }
@@ -35,7 +44,7 @@ exports.postSignup= async (req,res)=>{
     catch(err){
         if(err.name==='SequelizeUniqueContraintError'){
             res.status(400).json({
-                error:err,msg:'Email si already registered'
+                error:err,msg:'Email is already registered'
             })
             return
         }
@@ -52,24 +61,34 @@ exports.postLogin=async(req,res)=>{
     const email =req.body.email;
     const password =req.body.password;
 
+    
     if(!email || !password){
+        
         res.status(400).json({msg:'All fields are required'})
         return
     }
     try{
+       
         const user = await User.findOne({where:{email:email}})
         if(!user){
             res.status(404).json({msg:'Email not registered'})
+           
             return
-        }
 
+        }
+        
         const hash =  user.password;
         const match =await bcrypt.compare(password,hash)
+        console.log('hash:', hash);
+console.log('password:', password);
+
         if(match){
+           
             res.status(200).json({
                 msg:'User logged in successfully',
                 token:generateAccessToken(user)
             })
+            console.log('sucess');
         }else{
             res.status(401).json({msg:'Incorrect Password'})
         }
@@ -77,12 +96,4 @@ exports.postLogin=async(req,res)=>{
         console.log('POST USER LOGIN ERROR');
         res.status(401).json({error: err, msg: 'Could not fetch user'})
     }
-}
-
-function generateAccessToken(user){
-    return jwt.sign({ 
-        userId: user.id, 
-        username: user.username,
-        email: user.email
-    }, process.env.JWT_SECRET_KEY);
 }
