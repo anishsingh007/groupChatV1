@@ -8,6 +8,12 @@ const fileUpload = require("express-fileupload");
 const bodyParser = require('body-parser');
 const cors = require('cors');
 const cron = require('node-cron');
+const http = require('http');
+const socketIO = require('socket.io');
+const app = express();
+//sockets 
+const server = http.createServer(app);
+const io = socketIO(server,{cors : {origin :"*"}});
 
 //util
 const sequelize = require('./util/database');
@@ -26,8 +32,22 @@ const groupRoutes = require('./routes/group');
 const adminroutes = require('./routes/admin');
 //controllers
 const errorController = require('./controllers/error');
-
-const app = express();
+//sockets
+io.on('connection', (socket) => {
+    // Handle events from the client
+    socket.on('message', (chat) => {
+        console.log(chat.message);                                                          
+      // Save the chat to the database (if needed)
+      // Emit the chat to all clients in the same group
+      io.emit('message', chat);
+    });
+  
+    // Join a room based on the groupId
+    // socket.on('joinGroup', (groupId) => {
+    //   socket.join(groupId);
+    // });
+  
+  });
 
 // middlewares
 app.use(cors({ origin: '*' }));
@@ -85,13 +105,17 @@ Group.hasMany(ArchivedChat);
 ArchivedChat.belongsTo(Group);
 
 /* ---------- Database relations end ---------- */
+// sockets
+
 
 // Start the server
+
 sequelize.sync()
 .then((result) => {
-    app.listen(process.env.PORT || 3000, () => console.log('SERVER STARTED'));
+    server.listen(process.env.PORT || 3000, () => console.log('SERVER STARTED'));
 })
 .catch((err) => console.log(err));
+
 
 // Move all the chats from 'Chats' to 'ArchivedChats' DB-table at 23:59:59
 cron.schedule('59 59 23 * * *', scheduler.moveChatsToArchivedChats);

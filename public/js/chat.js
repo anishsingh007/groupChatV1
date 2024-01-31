@@ -7,7 +7,12 @@ const decodedToken = parseJwt(token);
 const USERNAME = decodedToken.username;
 const USER_ID = decodedToken.userId;
 const USER_EMAIL = decodedToken.email;
+const socket = io();
 
+socket.on('message', (chat)=>{
+    console.log(chat);
+    addChatInDOM(chat)
+})
 // Navbar
 const usernameNav = document.getElementById('usernameNav');
 // Chats
@@ -341,45 +346,51 @@ function getGroupChats(groupId){
     });
 }
 
-function createChatInGroup(){
-    if(CURRENT_GROUP_ID == null){
+function createChatInGroup() {
+    if (CURRENT_GROUP_ID == null) {
         showErrorInDOM('Please select a group!');
         return;
     }
 
-    if(messageInput.value === ''){
-        showErrorInDOM('Please enter message!');
+    if (messageInput.value === '') {
+        showErrorInDOM('Please enter a message!');
         showErrorInInputFieldInDOM(messageInput);
         return;
     }
 
     const chat = {
-        message: messageInput.value
+        groupId: CURRENT_GROUP_ID,
+        message: messageInput.value,
+        username: USERNAME,
     };
 
     axios.post(`${ORIGIN}/group/addChat?groupId=${CURRENT_GROUP_ID}`, chat, { headers: {Authorization: token} })
-    .then((res) => {
-        const message = res.data.message;
-        const createdAt = res.data.createdAt;
+        .then((res) => {
+            const message = res.data.message;
+            const createdAt = res.data.createdAt;
 
-        const chat = {
-            message,
-            createdAt,
-            user: { username: USERNAME }
-        };
+            const chat = {
+                message,
+                createdAt,
+                user: { username: USERNAME }
+            };
 
-        addChatInDOM(chat);
+            // Emit the message to the server
+            socket.emit('message', chat);
 
-        messageInput.value = '';
-    })
-    .catch((err) => {
-        let msg = "Could not add chat :(";
-        if(err.response && err.response.data && err.response.data.msg){
-            msg = err.response.data.msg;
-        }
-        showErrorInDOM(msg);
-    });
+            messageInput.value = '';
+        })
+        .catch((err) => {
+            let msg = "Could not add chat :(";
+            if (err.response && err.response.data && err.response.data.msg) {
+                msg = err.response.data.msg;
+            }
+            showErrorInDOM(msg);
+        });
 }
+
+// Add the event listener for sending the chat
+sendBtn.addEventListener('click', createChatInGroup);
 
 function uploadFile(e){
     e.preventDefault();
